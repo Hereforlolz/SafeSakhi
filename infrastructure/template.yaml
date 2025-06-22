@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SafeSakhi - AI-powered women's safety platform
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.9
+    MemorySize: 256
+
+Resources:
+
+  AudioProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SafeSakhi-AudioProcessor
+      CodeUri: ../lambdas/audio_processor/
+      Handler: handler.lambda_handler
+      Events:
+        AudioTrigger:
+          Type: Api
+          Properties:
+            Path: /audio
+            Method: POST
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: SafeSakhi-AudioAnalysis
+
+  MotionAnalyzerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SafeSakhi-MotionAnalyzer
+      CodeUri: ../lambdas/motion_analyzer/
+      Handler: handler.lambda_handler
+      Events:
+        MotionTrigger:
+          Type: Api
+          Properties:
+            Path: /motion
+            Method: POST
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: SafeSakhi-MotionAnalysis
+
+  TextAnalyzerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SafeSakhi-TextAnalyzer
+      CodeUri: ../lambdas/text_analyzer/
+      Handler: handler.lambda_handler
+      Events:
+        TextTrigger:
+          Type: Api
+          Properties:
+            Path: /text
+            Method: POST
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: SafeSakhi-TextAnalysis
+
+  RiskAssessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SafeSakhi-RiskAssessment
+      CodeUri: ../lambdas/risk_assessor/
+      Handler: handler.lambda_handler
+
+  EmergencyResponderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: SafeSakhi-EmergencyResponse
+      CodeUri: ../lambdas/emergency_responder/
+      Handler: handler.lambda_handler
