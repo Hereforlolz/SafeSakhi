@@ -7,8 +7,13 @@ Globals:
     Timeout: 30
     Runtime: python3.9
     MemorySize: 256
+    Tracing: Active
 
 Resources:
+
+  ##########################
+  # Lambda Functions
+  ##########################
 
   AudioProcessorFunction:
     Type: AWS::Serverless::Function
@@ -25,6 +30,11 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE: SafeSakhi-AudioAnalysis
+          S3_BUCKET: safesakhi-audio-temp
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
 
   MotionAnalyzerFunction:
     Type: AWS::Serverless::Function
@@ -41,6 +51,8 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE: SafeSakhi-MotionAnalysis
+      Policies:
+        - AmazonDynamoDBFullAccess
 
   TextAnalyzerFunction:
     Type: AWS::Serverless::Function
@@ -57,6 +69,9 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_TABLE: SafeSakhi-TextAnalysis
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonDynamoDBFullAccess
 
   RiskAssessorFunction:
     Type: AWS::Serverless::Function
@@ -64,6 +79,14 @@ Resources:
       FunctionName: SafeSakhi-RiskAssessment
       CodeUri: ../lambdas/risk_assessor/
       Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          DYNAMODB_USERS: SafeSakhi-Users
+          DYNAMODB_ANALYSIS: SafeSakhi-RiskAssessments
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - LambdaInvokePolicy:
+            FunctionName: !GetAtt EmergencyResponderFunction.Arn
 
   EmergencyResponderFunction:
     Type: AWS::Serverless::Function
@@ -71,3 +94,147 @@ Resources:
       FunctionName: SafeSakhi-EmergencyResponse
       CodeUri: ../lambdas/emergency_responder/
       Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref EmergencySNSTopic
+          S3_BUCKET: safesakhi-evidence-store
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - AmazonSNSFullAccess
+        - AmazonS3FullAccess
+
+  ##########################
+  # DynamoDB Tables
+  ##########################
+
+  AudioAnalysisTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSakhi-AudioAnalysis
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  MotionAnalysisTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSakhi-MotionAnalysis
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  TextAnalysisTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSakhi-TextAnalysis
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  RiskAssessmentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSakhi-RiskAssessments
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSakhi-Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+
+  EvidenceTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSakhi-Evidence
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: evidence_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: evidence_id
+          KeyType: HASH
+
+  ##########################
+  # S3 Buckets
+  ##########################
+
+  TempAudioBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: safesakhi-audio-temp
+
+  EvidenceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: safesakhi-evidence-store
+
+  ##########################
+  # SNS Topic
+  ##########################
+
+  EmergencySNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: SafeSakhi-EmergencyAlerts
+
+  ##########################
+  # Outputs
+  ##########################
+
+Outputs:
+  ApiURL:
+    Description: "API Gateway endpoint"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  AudioAnalysisTable:
+    Value: !Ref AudioAnalysisTable
+  MotionAnalysisTable:
+    Value: !Ref MotionAnalysisTable
+  TextAnalysisTable:
+    Value: !Ref TextAnalysisTable
+  RiskAssessmentsTable:
+    Value: !Ref RiskAssessmentsTable
+  EvidenceS3Bucket:
+    Value: !Ref EvidenceBucket
+  EmergencyAlertsTopic:
+    Value: !Ref EmergencySNSTopic
