@@ -28,8 +28,6 @@ tests/           – Unit tests for each component
 
 **AWS Serverless Integration**: Built on fully managed AWS services to ensure 99.9% uptime and automatic scaling. The event-driven architecture processes threat detection across multiple data streams simultaneously, with average response times under 200ms for critical alerts.
 
-*Early prototype testing shows 94% accuracy in threat detection scenarios, with false positive rates under 6% - significantly outperforming traditional panic button solutions that rely on manual activation.*
-
 ## Why This Matters
 
 Women's safety technology hasn't evolved much beyond basic panic buttons and location sharing. SafeSakhi represents a proactive approach - using ambient audio analysis and motion detection to identify potentially dangerous situations before they escalate.
