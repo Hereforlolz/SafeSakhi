@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: SafeSakhi - AI-powered women's safety platform
+Description: SafeSakhi - AI-powered women's safety platform with Audio, Motion, Text analysis, Risk Assessment, and Emergency Response.
 
 Globals:
   Function:
-    Timeout: 30
+    Timeout: 30 # Default timeout for all functions
     Runtime: python3.9
-    MemorySize: 256
-    Tracing: Active
+    MemorySize: 256 # Default memory for all functions
+    Tracing: Active # Enable X-Ray tracing for all functions
 
 Resources:
 
@@ -22,19 +22,51 @@ Resources:
       CodeUri: ../lambdas/audio_processor/
       Handler: handler.lambda_handler
       Events:
-        AudioTrigger:
+        AudioApiTrigger:
           Type: Api
           Properties:
-            Path: /audio
+            Path: /audio-input
             Method: POST
       Environment:
         Variables:
-          DYNAMODB_TABLE: SafeSakhi-AudioAnalysis
-          S3_BUCKET: safesakhi-audio-temp
+          LOG_LEVEL: INFO
+          AUDIO_ANALYSIS_TABLE_NAME: !Ref AudioAnalysisTable
+          AUDIO_TEMP_BUCKET_NAME: !Ref TempAudioBucket
+          RISK_ASSESSMENT_LAMBDA_NAME: !Ref RiskAssessorFunction
+          THREAT_SCORE_TRIGGER_THRESHOLD: 0.6
+          COMPREHEND_LANGUAGE_CODE: en
+          COMPREHEND_SENTIMENT_THRESHOLD: 0.2
+          COMPREHEND_VOLUME_THRESHOLD: 0.7
       Policies:
-        - AmazonDynamoDBFullAccess
-        - AmazonS3FullAccess
         - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Sid: S3ReadWriteAccess
+              Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:DeleteObject
+                - s3:ListBucket
+              Resource:
+                - !GetAtt TempAudioBucket.Arn
+                - !Sub "${TempAudioBucket.Arn}/*" # CORRECTED S3 ARN SYNTAX
+        - Statement:
+            - Sid: DynamoDBWriteAudioAnalysis
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt AudioAnalysisTable.Arn
+        - Statement:
+            - Sid: ComprehendPermissions
+              Effect: Allow
+              Action:
+                - comprehend:DetectSentiment
+                - comprehend:DetectDominantLanguage
+              Resource: "*"
+        - LambdaInvokePolicy:
+            FunctionName: !GetAtt RiskAssessorFunction.Arn
 
   MotionAnalyzerFunction:
     Type: AWS::Serverless::Function
@@ -43,16 +75,32 @@ Resources:
       CodeUri: ../lambdas/motion_analyzer/
       Handler: handler.lambda_handler
       Events:
-        MotionTrigger:
+        MotionApiTrigger:
           Type: Api
           Properties:
-            Path: /motion
+            Path: /motion-input
             Method: POST
       Environment:
         Variables:
-          DYNAMODB_TABLE: SafeSakhi-MotionAnalysis
+          LOG_LEVEL: INFO
+          MOTION_ANALYSIS_TABLE_NAME: !Ref MotionAnalysisTable
+          RISK_ASSESSMENT_LAMBDA_NAME: !Ref RiskAssessorFunction
+          THREAT_SCORE_TRIGGER_THRESHOLD: 0.5
+          MOTION_ACTIVITY_THRESHOLD: 0.1
+          LOCATION_STATIONARY_THRESHOLD_METERS: 50
+          STATIONARY_DURATION_SECONDS: 300
       Policies:
-        - AmazonDynamoDBFullAccess
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Sid: DynamoDBWriteMotionAnalysis
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt MotionAnalysisTable.Arn
+        - LambdaInvokePolicy:
+            FunctionName: !GetAtt RiskAssessorFunction.Arn
 
   TextAnalyzerFunction:
     Type: AWS::Serverless::Function
@@ -61,17 +109,62 @@ Resources:
       CodeUri: ../lambdas/text_analyzer/
       Handler: handler.lambda_handler
       Events:
-        TextTrigger:
+        TextApiTrigger:
           Type: Api
           Properties:
-            Path: /text
+            Path: /text-input
             Method: POST
       Environment:
         Variables:
-          DYNAMODB_TABLE: SafeSakhi-TextAnalysis
+          LOG_LEVEL: INFO
+          TEXT_ANALYSIS_TABLE_NAME: !Ref TextAnalysisTable
+          EVIDENCE_TABLE_NAME: !Ref EvidenceTable
+          RISK_ASSESSMENT_LAMBDA_NAME: !Ref RiskAssessorFunction
+          THREAT_SCORE_TRIGGER_THRESHOLD: 0.6
+          EVIDENCE_STORAGE_THRESHOLD: 0.7
+          EVIDENCE_RETENTION_DAYS: 90
+          COMPREHEND_LANGUAGE_CODE: en
+          COERCION_KEYWORDS: "dont tell anyone,keep this secret,between us,dont go,stay with me,you have to,you must,or else,threat,hurt,family,consequences"
+          CONTROL_PATTERNS: "where are you,who are you with,come back now,you better,if you dont,i know where you live,watching you"
+          KEYWORD_COERCION_WEIGHT: 0.2
+          REGEX_CONTROL_WEIGHT: 0.3
+          COMPREHEND_ANALYSIS_WEIGHT: 0.4
+          COMPREHEND_NEGATIVE_SENTIMENT_FACTOR: 0.5
+          COMPREHEND_THREAT_PHRASES: "physical harm,hurt you,find you,follow you,watch you,kill you"
+          COMPREHEND_KEYPHRASE_BONUS: 0.3
+          COMPREHEND_ENTITY_BONUS: 0.1
+          COMPREHEND_PERSONAL_ENTITY_TYPES: "PERSON,LOCATION,DATE,PHONE_NUMBER,EMAIL,ADDRESS,BANK_ACCOUNT_NUMBER,SSN,IP_ADDRESS,MAC_ADDRESS"
+          COMPREHEND_ENTITY_SCORE_THRESHOLD: 0.8
+          MESSAGE_TYPE_MULTIPLIERS: '{"call": 1.2, "repeated_sms": 1.1, "sms": 1.0, "chat": 1.0}'
       Policies:
         - AWSLambdaBasicExecutionRole
-        - AmazonDynamoDBFullAccess
+        - Statement:
+            - Sid: DynamoDBWriteTextAnalysis
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt TextAnalysisTable.Arn
+        - Statement:
+            - Sid: DynamoDBWriteEvidence
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt EvidenceTable.Arn
+        - Statement:
+            - Sid: ComprehendTextPermissions
+              Effect: Allow
+              Action:
+                - comprehend:DetectSentiment
+                - comprehend:DetectKeyPhrases
+                - comprehend:DetectEntities
+                - comprehend:DetectDominantLanguage
+              Resource: "*"
+        - LambdaInvokePolicy:
+            FunctionName: !GetAtt RiskAssessorFunction.Arn
 
   RiskAssessorFunction:
     Type: AWS::Serverless::Function
@@ -81,10 +174,69 @@ Resources:
       Handler: handler.lambda_handler
       Environment:
         Variables:
-          DYNAMODB_USERS: SafeSakhi-Users
-          DYNAMODB_ANALYSIS: SafeSakhi-RiskAssessments
+          LOG_LEVEL: INFO
+          RISK_ASSESSMENT_THRESHOLD: 0.8
+          USERS_TABLE_NAME: !Ref UsersTable
+          AUDIO_ANALYSIS_TABLE_NAME: !Ref AudioAnalysisTable
+          MOTION_ANALYSIS_TABLE_NAME: !Ref MotionAnalysisTable
+          TEXT_ANALYSIS_TABLE_NAME: !Ref TextAnalysisTable
+          RISK_ASSESSMENTS_TABLE_NAME: !Ref RiskAssessmentsTable
+          INCIDENT_HISTORY_TABLE_NAME: !Ref IncidentHistoryTable
+          EMERGENCY_RESPONSE_LAMBDA_NAME: !Ref EmergencyResponderFunction
+          RECENT_THREATS_TIME_WINDOW_SECONDS: 1800
+          WEIGHT_BASE_SCORE: 0.4
+          WEIGHT_ESCALATION_SCORE: 0.3
+          WEIGHT_CONTEXT_SCORE: 0.2
+          WEIGHT_PATTERN_SCORE: 0.1
+          THRESHOLD_CRITICAL: 0.9
+          THRESHOLD_HIGH: 0.7
+          THRESHOLD_MEDIUM: 0.5
+          THRESHOLD_LOW: 0.3
+          CONTEXT_NIGHT_HOURS_BONUS: 0.2
+          CONTEXT_HIGH_RISK_AREA_BONUS: 0.3
+          CONTEXT_ISOLATED_LOCATION_BONUS: 0.1
+          LOCATION_ACCURACY_THRESHOLD_METERS: 100
+          HIGH_RISK_AREA_PROXIMITY_DEGREE: 0.01
+          ESCALATION_MULTI_TYPE_BONUS: 0.4
+          ESCALATION_HIGH_COUNT_BONUS: 0.3
+          ESCALATION_HIGH_SEVERITY_BONUS: 0.3
+          ESCALATION_HIGH_SEVERITY_THRESHOLD: 0.6
+          ESCALATION_HIGH_COUNT_THRESHOLD: 3
       Policies:
-        - AmazonDynamoDBFullAccess
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Sid: DynamoDBReadWriteUsersTable
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:BatchGetItem
+                - dynamodb:Query
+                - dynamodb:Scan
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt UsersTable.Arn
+        - Statement:
+            - Sid: DynamoDBQueryAnalysisTables
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:BatchGetItem
+                - dynamodb:Query
+                - dynamodb:Scan
+              Resource:
+                - !GetAtt AudioAnalysisTable.Arn
+                - !GetAtt MotionAnalysisTable.Arn
+                - !GetAtt TextAnalysisTable.Arn
+                - !GetAtt IncidentHistoryTable.Arn
+        - Statement:
+            - Sid: DynamoDBWriteRiskAssessments
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt RiskAssessmentsTable.Arn
         - LambdaInvokePolicy:
             FunctionName: !GetAtt EmergencyResponderFunction.Arn
 
@@ -96,12 +248,37 @@ Resources:
       Handler: handler.lambda_handler
       Environment:
         Variables:
+          LOG_LEVEL: INFO
           SNS_TOPIC_ARN: !Ref EmergencySNSTopic
-          S3_BUCKET: safesakhi-evidence-store
+          EVIDENCE_S3_BUCKET_NAME: !Ref EvidenceBucket
+          INCIDENT_HISTORY_TABLE_NAME: !Ref IncidentHistoryTable
+          SMS_MESSAGE_TEMPLATE: "URGENT: SafeSakhi detected a high-risk situation for user {user_id} at {timestamp_iso}. Risk Level: {risk_level}. Please check SafeSakhi app."
+          EMAIL_SUBJECT_TEMPLATE: "SafeSakhi URGENT Alert for User {user_id} - {risk_level} Risk Detected"
+          EMAIL_BODY_TEMPLATE: "Dear Emergency Contact, \n\nSafeSakhi has detected a {risk_level} risk situation for user {user_id} at {timestamp_iso}. \n\nDetails: Final Risk Score: {final_score:.2f}, Trigger Type: {trigger_type}. \n\nPlease take immediate action and check the SafeSakhi application for more information. \n\nSincerely, \nYour SafeSakhi Team"
+          RECORD_UPLOAD_S3_PREFIX: "incident-records/"
+          RECORD_RETENTION_DAYS: 365
       Policies:
-        - AmazonDynamoDBFullAccess
-        - AmazonSNSFullAccess
-        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Sid: DynamoDBWriteIncidentHistory
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt IncidentHistoryTable.Arn
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref EmergencySNSTopic # Corrected to TopicName
+        - Statement:
+            - Sid: S3WriteEvidence
+              Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:PutObjectAcl
+                - s3:ListBucket
+              Resource:
+                - !GetAtt EvidenceBucket.Arn
+                - !Sub "${EvidenceBucket.Arn}/*" # CORRECTED S3 ARN SYNTAX
 
   ##########################
   # DynamoDB Tables
@@ -131,12 +308,12 @@ Resources:
       AttributeDefinitions:
         - AttributeName: user_id
           AttributeType: S
-        - AttributeName: timestamp
+        - AttributeName: created_at_epoch
           AttributeType: N
       KeySchema:
         - AttributeName: user_id
           KeyType: HASH
-        - AttributeName: timestamp
+        - AttributeName: created_at_epoch
           KeyType: RANGE
 
   TextAnalysisTable:
@@ -183,7 +360,7 @@ Resources:
         - AttributeName: user_id
           KeyType: HASH
 
-  EvidenceTable:
+  EvidenceTable: # Corrected AttributeDefinitions for TTL
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: SafeSakhi-Evidence
@@ -194,6 +371,25 @@ Resources:
       KeySchema:
         - AttributeName: evidence_id
           KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: retention_until
+        Enabled: true
+
+  IncidentHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSakhi-IncidentHistory
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: N
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: created_at
+          KeyType: RANGE
 
   ##########################
   # S3 Buckets
@@ -202,12 +398,22 @@ Resources:
   TempAudioBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: safesakhi-audio-temp
+      BucketName: !Sub "safesakhi-audio-temp-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
   EvidenceBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: safesakhi-evidence-store
+      BucketName: !Sub "safesakhi-evidence-store-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
   ##########################
   # SNS Topic
@@ -219,22 +425,82 @@ Resources:
       TopicName: SafeSakhi-EmergencyAlerts
 
   ##########################
+  # Lambda Log Groups (for better logging management and retention)
+  ##########################
+  AudioProcessorFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AudioProcessorFunction}"
+      RetentionInDays: 30
+
+  MotionAnalyzerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${MotionAnalyzerFunction}"
+      RetentionInDays: 30
+
+  TextAnalyzerFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${TextAnalyzerFunction}"
+      RetentionInDays: 30
+
+  RiskAssessorFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${RiskAssessorFunction}"
+      RetentionInDays: 30
+
+  EmergencyResponderFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${EmergencyResponderFunction}"
+      RetentionInDays: 30
+
+  ##########################
   # Outputs
   ##########################
 
 Outputs:
   ApiURL:
-    Description: "API Gateway endpoint"
+    Description: "API Gateway endpoint for triggering analysis Lambdas"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  AudioProcessorApi:
+    Description: "API Gateway URL for Audio Processor"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/audio-input"
+  MotionAnalyzerApi:
+    Description: "API Gateway URL for Motion Analyzer"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/motion-input"
+  TextAnalyzerApi:
+    Description: "API Gateway URL for Text Analyzer"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/text-input"
   AudioAnalysisTable:
+    Description: "DynamoDB Table for Audio Analysis Data"
     Value: !Ref AudioAnalysisTable
   MotionAnalysisTable:
+    Description: "DynamoDB Table for Motion Analysis Data"
     Value: !Ref MotionAnalysisTable
   TextAnalysisTable:
+    Description: "DynamoDB Table for Text Analysis Data"
     Value: !Ref TextAnalysisTable
   RiskAssessmentsTable:
+    Description: "DynamoDB Table for Risk Assessment History"
     Value: !Ref RiskAssessmentsTable
-  EvidenceS3Bucket:
+  UsersTable:
+    Description: "DynamoDB Table for User Profiles"
+    Value: !Ref UsersTable
+  EvidenceTable:
+    Description: "DynamoDB Table for High-Threat Evidence"
+    Value: !Ref EvidenceTable
+  IncidentHistoryTable:
+    Description: "DynamoDB Table for Emergency Incident History"
+    Value: !Ref IncidentHistoryTable
+  TempAudioBucket:
+    Description: "S3 Bucket for Temporary Audio Storage"
+    Value: !Ref TempAudioBucket
+  EvidenceBucket:
+    Description: "S3 Bucket for Storing Evidence Files (e.g., recorded media)"
     Value: !Ref EvidenceBucket
   EmergencyAlertsTopic:
+    Description: "SNS Topic for Emergency Alerts"
     Value: !Ref EmergencySNSTopic

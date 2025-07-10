@@ -1,17 +1,20 @@
 # AWS SAM build artifacts
 .aws-sam/
 
-# Python cache
+# Python cache and virtual environment
 __pycache__/
 *.pyc
+.venv/
 
 # Environment variables
 .env
+infrastructure/.env
 
-# VSCode settings
+# IDE and OS specific files
 .vscode/
-.aws-sam/
-__pycache__/
-*.pyc
 .DS_Store
-.venv/
+
+# Other temporary or sensitive files (add as needed)
+# *.log
+# *.sqlite
+# local_settings.py

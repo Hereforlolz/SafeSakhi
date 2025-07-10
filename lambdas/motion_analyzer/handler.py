@@ -1,182 +1,160 @@
 import json
+import os
 import boto3
 import logging
-import numpy as np
-from scipy import signal
-from scipy.stats import entropy
+from datetime import datetime
 
+# Configure logging
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(LOG_LEVEL)
 
+# AWS Clients
 dynamodb = boto3.resource('dynamodb')
+lambda_client = boto3.client('lambda')
+
+# DynamoDB Table Name from Environment Variable
+MOTION_ANALYSIS_TABLE_NAME = os.environ.get('MOTION_ANALYSIS_TABLE_NAME')
+motion_analysis_table = dynamodb.Table(MOTION_ANALYSIS_TABLE_NAME)
+
+# Risk Assessment Lambda Name
+RISK_ASSESSMENT_LAMBDA_NAME = os.environ.get('RISK_ASSESSMENT_LAMBDA_NAME')
+
+# Environment Variables for Analysis Thresholds (from template.yaml)
+THREAT_SCORE_TRIGGER_THRESHOLD = float(os.environ.get('THREAT_SCORE_TRIGGER_THRESHOLD', '0.5'))
+MOTION_ACTIVITY_THRESHOLD = float(os.environ.get('MOTION_ACTIVITY_THRESHOLD', '0.1'))
+LOCATION_STATIONARY_THRESHOLD_METERS = float(os.environ.get('LOCATION_STATIONARY_THRESHOLD_METERS', '50'))
+STATIONARY_DURATION_SECONDS = int(os.environ.get('STATIONARY_DURATION_SECONDS', '300'))
+
+
+def calculate_motion_threat_score(motion_activity, is_stationary, location_accuracy=None):
+    """
+    Calculates a threat score based on motion and location data.
+    This is a simplified example.
+    """
+    score = 0.0
+
+    # High motion activity could indicate struggle or rapid movement
+    if motion_activity > MOTION_ACTIVITY_THRESHOLD:
+        score += motion_activity * 0.4
+
+    # Being stationary in an unexpected location or for too long
+    if is_stationary:
+        score += 0.3 # Base score for being stationary
+
+        # If location accuracy is poor while stationary, increase threat
+        if location_accuracy and location_accuracy > LOCATION_STATIONARY_THRESHOLD_METERS:
+            score += 0.2
+
+        # In a real app, you'd check stationary duration and known safe locations
+
+    # Ensure score is between 0 and 1
+    return min(1.0, max(0.0, score))
+
 
 def lambda_handler(event, context):
+    logger.info(f"Received event: {json.dumps(event)}")
+
     try:
-        user_id = event['user_id']
-        motion_data = event['motion_data']  # Array of accelerometer/gyroscope readings
-        timestamp = event['timestamp']
-        location = event.get('location', {})
-        
-        # Analyze motion patterns
-        threat_score = analyze_motion_patterns(motion_data)
-        
-        # Store analysis results
-        store_motion_analysis(user_id, timestamp, threat_score, location, motion_data)
-        
-        # Trigger risk assessment if high threat score
-        if threat_score > 0.8:
-            trigger_risk_assessment(user_id, 'motion', threat_score, {
-                'timestamp': timestamp,
-                'location': location,
-                'motion_analysis': True
-            })
-        
+        # API Gateway Proxy Integration puts the body as a string under 'body' key
+        if 'body' in event and event['body'] is not None:
+            body_data = json.loads(event['body'])
+        else:
+            body_data = event # For direct Lambda invocation or other triggers
+
+        logger.info(f"Parsed body data: {json.dumps(body_data)}")
+
+        user_id = body_data.get('user_id')
+        created_at_epoch = body_data.get('created_at_epoch')
+        motion_activity = body_data.get('motion_activity')
+        location = body_data.get('location') # This will be a dictionary
+        is_stationary = body_data.get('is_stationary')
+
+        if not all([user_id, created_at_epoch, motion_activity is not None, location, is_stationary is not None]):
+            logger.error("Validation Error: Missing required fields (user_id, created_at_epoch, motion_activity, location, is_stationary).")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Missing required fields for motion analysis'})
+            }
+
+        # Convert timestamp to integer if it's not already
+        try:
+            created_at_epoch = int(created_at_epoch)
+        except ValueError:
+            logger.error(f"Invalid created_at_epoch format: {created_at_epoch}")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Invalid created_at_epoch format. Must be an integer epoch.'})
+            }
+
+        # Extract location details
+        latitude = location.get('latitude')
+        longitude = location.get('longitude')
+        accuracy = location.get('accuracy')
+
+        if not all([user_id, timestamp]):
+            logger.error("Validation Error: Missing required fields (user_id, timestamp).")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Missing required fields (user_id, timestamp)'})
+            }
+
+        # Calculate threat score
+        threat_score = calculate_motion_threat_score(motion_activity, is_stationary, accuracy)
+
+        # Store analysis in DynamoDB
+        item = {
+            'user_id': user_id,
+            'created_at_epoch': created_at_epoch,
+            'motion_activity': motion_activity,
+            'location': {
+                'latitude': latitude,
+                'longitude': longitude,
+                'accuracy': accuracy
+            },
+            'is_stationary': is_stationary,
+            'threat_score': threat_score,
+            'analysis_time': datetime.utcnow().isoformat()
+        }
+        motion_analysis_table.put_item(Item=item)
+        logger.info(f"Motion analysis stored for user {user_id} at {created_at_epoch} with score {threat_score}")
+
+        # Invoke Risk Assessor Lambda if threat score exceeds threshold
+        if threat_score >= THREAT_SCORE_TRIGGER_THRESHOLD:
+            logger.info(f"Threat score {threat_score} >= threshold {THREAT_SCORE_TRIGGER_THRESHOLD}. Invoking Risk Assessor.")
+            lambda_client.invoke(
+                FunctionName=RISK_ASSESSMENT_LAMBDA_NAME,
+                InvocationType='Event',  # Asynchronous invocation
+                Payload=json.dumps({
+                    'user_id': user_id,
+                    'trigger_type': 'motion_analysis',
+                    'timestamp': created_at_epoch, # Use motion timestamp for consistency
+                    'threat_score': threat_score
+                })
+            )
+            logger.info("Risk Assessor Lambda invoked.")
+
         return {
             'statusCode': 200,
-            'body': json.dumps({
-                'threat_score': threat_score,
-                'analysis_complete': True,
-                'emergency_triggered': threat_score > 0.8
-            })
+            'body': json.dumps({'message': 'Motion analysis processed successfully', 'threat_score': threat_score})
         }
-        
+
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error: {e}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Invalid JSON in request body'})
+        }
+    except KeyError as e:
+        logger.error(f"Missing expected key in event body or location data: {e}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': f'Missing expected key: {e}'})
+        }
     except Exception as e:
-        logger.error(f"Error processing motion data: {str(e)}")
+        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'body': json.dumps({'error': 'Motion processing failed'})
+            'body': json.dumps({'error': 'Internal server error'})
         }
-
-def analyze_motion_patterns(motion_data):
-    """Analyze motion data for threat indicators"""
-    try:
-        if not motion_data or len(motion_data) < 10:
-            return 0.0
-        
-        # Extract accelerometer and gyroscope data
-        accel_x = [d['accel_x'] for d in motion_data]
-        accel_y = [d['accel_y'] for d in motion_data]
-        accel_z = [d['accel_z'] for d in motion_data]
-        gyro_x = [d['gyro_x'] for d in motion_data]
-        gyro_y = [d['gyro_y'] for d in motion_data]
-        gyro_z = [d['gyro_z'] for d in motion_data]
-        
-        # Calculate threat indicators
-        shake_score = detect_violent_shaking(accel_x, accel_y, accel_z)
-        fall_score = detect_fall_pattern(accel_x, accel_y, accel_z)
-        struggle_score = detect_struggle_pattern(accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z)
-        
-        # Combine scores
-        combined_score = max(shake_score, fall_score, struggle_score)
-        
-        return min(combined_score, 1.0)
-        
-    except Exception as e:
-        logger.error(f"Error in motion pattern analysis: {str(e)}")
-        return 0.0
-
-def detect_violent_shaking(accel_x, accel_y, accel_z):
-    """Detect violent shaking patterns"""
-    try:
-        # Calculate magnitude of acceleration
-        magnitude = np.sqrt(np.array(accel_x)**2 + np.array(accel_y)**2 + np.array(accel_z)**2)
-        
-        # Remove gravity (assuming phone is held normally)
-        magnitude_no_gravity = magnitude - 9.8
-        
-        # Calculate variance and frequency of high-amplitude movements
-        variance = np.var(magnitude_no_gravity)
-        high_amplitude_count = np.sum(np.abs(magnitude_no_gravity) > 3.0)  # 3g threshold
-        
-        # Calculate shake score
-        shake_score = min((variance / 10.0) + (high_amplitude_count / len(magnitude) * 2), 1.0)
-        
-        return shake_score
-        
-    except Exception as e:
-        logger.error(f"Error detecting shaking: {str(e)}")
-        return 0.0
-
-def detect_fall_pattern(accel_x, accel_y, accel_z):
-    """Detect fall patterns"""
-    try:
-        magnitude = np.sqrt(np.array(accel_x)**2 + np.array(accel_y)**2 + np.array(accel_z)**2)
-        
-        # Look for free fall (low acceleration) followed by impact (high acceleration)
-        low_accel_threshold = 2.0  # Below normal gravity
-        high_accel_threshold = 20.0  # High impact
-        
-        fall_score = 0.0
-        
-        for i in range(len(magnitude) - 5):
-            window = magnitude[i:i+5]
-            if (np.min(window[:3]) < low_accel_threshold and 
-                np.max(window[3:]) > high_accel_threshold):
-                fall_score = max(fall_score, 0.9)
-        
-        return fall_score
-        
-    except Exception as e:
-        logger.error(f"Error detecting fall: {str(e)}")
-        return 0.0
-
-def detect_struggle_pattern(accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z):
-    """Detect struggle/fight patterns"""
-    try:
-        # Combine accelerometer and gyroscope data
-        accel_magnitude = np.sqrt(np.array(accel_x)**2 + np.array(accel_y)**2 + np.array(accel_z)**2)
-        gyro_magnitude = np.sqrt(np.array(gyro_x)**2 + np.array(gyro_y)**2 + np.array(gyro_z)**2)
-        
-        # Calculate entropy (randomness) of motion
-        accel_entropy = entropy(np.histogram(accel_magnitude, bins=10)[0] + 1e-10)
-        gyro_entropy = entropy(np.histogram(gyro_magnitude, bins=10)[0] + 1e-10)
-        
-        # High entropy + high magnitude suggests struggle
-        combined_entropy = (accel_entropy + gyro_entropy) / 2
-        avg_magnitude = np.mean(accel_magnitude)
-        
-        struggle_score = min((combined_entropy / 3.0) + (avg_magnitude / 20.0), 1.0)
-        
-        return struggle_score
-        
-    except Exception as e:
-        logger.error(f"Error detecting struggle: {str(e)}")
-        return 0.0
-
-def store_motion_analysis(user_id, timestamp, threat_score, location, motion_data):
-    """Store motion analysis results"""
-    try:
-        table = dynamodb.Table('SafeSakhi-MotionAnalysis')
-        table.put_item(
-            Item={
-                'user_id': user_id,
-                'timestamp': timestamp,
-                'threat_score': float(threat_score),
-                'location': location,
-                'analysis_type': 'motion',
-                'data_points': len(motion_data),
-                'created_at': timestamp
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error storing motion analysis: {str(e)}")
-
-def trigger_risk_assessment(user_id, trigger_type, score, context):
-    """Trigger risk assessment Lambda"""
-    try:
-        lambda_client = boto3.client('lambda')
-        payload = {
-            'user_id': user_id,
-            'trigger_type': trigger_type,
-            'threat_score': score,
-            'context': context
-        }
-        
-        lambda_client.invoke(
-            FunctionName='SafeSakhi-RiskAssessment',
-            InvocationType='Event',
-            Payload=json.dumps(payload)
-        )
-        
-    except Exception as e:
-        logger.error(f"Error triggering risk assessment: {str(e)}")

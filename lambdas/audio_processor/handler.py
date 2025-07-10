@@ -1,235 +1,155 @@
 import json
+import os
 import boto3
 import logging
-import base64
-import numpy as np
-from scipy import signal
-import librosa
+from datetime import datetime
+from decimal import Decimal
+# import numpy # Uncomment if you actually use numpy in your audio processing logic
 
+# Configure logging
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(LOG_LEVEL)
 
-# Initialize AWS clients
-transcribe = boto3.client('transcribe')
-comprehend = boto3.client('comprehend')
+# AWS Clients
 dynamodb = boto3.resource('dynamodb')
-s3 = boto3.client('s3')
+# s3 = boto3.client('s3') # Uncomment if you need to interact with S3 directly in this Lambda
+# comprehend = boto3.client('comprehend') # Uncomment if you use Comprehend here
+lambda_client = boto3.client('lambda')
 
-# Threat keywords and patterns
-THREAT_KEYWORDS = [
-    'help', 'stop', 'no', 'dont', 'leave me alone', 'get away',
-    'call police', 'emergency', 'danger', 'scared', 'hurt'
-]
+# DynamoDB Table Names from Environment Variables
+AUDIO_ANALYSIS_TABLE_NAME = os.environ.get('AUDIO_ANALYSIS_TABLE_NAME')
+audio_analysis_table = dynamodb.Table(AUDIO_ANALYSIS_TABLE_NAME)
 
-DISTRESS_PATTERNS = [
-    'please stop', 'I said no', 'help me', 'somebody help',
-    'call 911', 'get off me', 'leave me alone'
-]
+# S3 Bucket Name
+AUDIO_TEMP_BUCKET_NAME = os.environ.get('AUDIO_TEMP_BUCKET_NAME')
+
+# Risk Assessment Lambda Name
+RISK_ASSESSMENT_LAMBDA_NAME = os.environ.get('RISK_ASSESSMENT_LAMBDA_NAME')
+
+# Environment Variables for Analysis Thresholds (from template.yaml)
+THREAT_SCORE_TRIGGER_THRESHOLD = float(os.environ.get('THREAT_SCORE_TRIGGER_THRESHOLD', '0.6'))
+COMPREHEND_LANGUAGE_CODE = os.environ.get('COMPREHEND_LANGUAGE_CODE', 'en')
+COMPREHEND_SENTIMENT_THRESHOLD = float(os.environ.get('COMPREHEND_SENTIMENT_THRESHOLD', '0.2'))
+COMPREHEND_VOLUME_THRESHOLD = float(os.environ.get('COMPREHEND_VOLUME_THRESHOLD', '0.7'))
+
+
+def calculate_audio_threat_score(volume_level, sentiment_score):
+    """
+    Calculates a threat score based on audio analysis.
+    This is a simplified example. Real audio analysis would be more complex.
+    """
+    score = 0.0
+
+    # Handle None values
+    if volume_level is None:
+        volume_level = 0.0
+    if sentiment_score is None:
+        sentiment_score = 0.0
+
+    # Increase score if volume is high (e.g., shouting)
+    if volume_level > COMPREHEND_VOLUME_THRESHOLD:
+        score += (volume_level - COMPREHEND_VOLUME_THRESHOLD) * 0.5 # Scale based on how much it exceeds threshold
+
+    # Increase score if sentiment is very negative
+    if sentiment_score < -COMPREHEND_SENTIMENT_THRESHOLD: # e.g., if sentiment is -0.7 and threshold is 0.2, -0.7 < -0.2
+        score += abs(sentiment_score) * 0.5 # Scale based on how negative it is
+
+    # Ensure score is between 0 and 1
+    return min(1.0, max(0.0, score))
+
 
 def lambda_handler(event, context):
+    logger.info(f"Received event: {json.dumps(event)}")
+
     try:
-        user_id = event['user_id']
-        audio_data = event['audio_data']  # Base64 encoded
-        timestamp = event['timestamp']
-        location = event.get('location', {})
-        
-        # Decode audio data
-        audio_bytes = base64.b64decode(audio_data)
-        
-        # Analyze audio for threats
-        threat_score = analyze_audio_threats(audio_bytes, user_id, timestamp)
-        
-        # Store analysis results
-        store_audio_analysis(user_id, timestamp, threat_score, location)
-        
-        # Trigger risk assessment if high threat score
-        if threat_score > 0.7:
-            trigger_risk_assessment(user_id, 'audio', threat_score, {
-                'timestamp': timestamp,
-                'location': location,
-                'audio_analysis': True
-            })
-        
+        # API Gateway Proxy Integration puts the body as a string under 'body' key
+        if 'body' in event and event['body'] is not None:
+            body_data = json.loads(event['body'])
+        else:
+            body_data = event # For direct Lambda invocation or other triggers
+
+        logger.info(f"Parsed body data: {json.dumps(body_data)}")
+
+        user_id = body_data.get('user_id')
+        audio_data_base64 = body_data.get('audio_data_base64')
+        timestamp = body_data.get('timestamp')
+        volume_level = body_data.get('volume_level')
+        sentiment_score = body_data.get('sentiment_score')
+        language_code = body_data.get('language_code')
+
+        if not all([user_id, timestamp]):
+            logger.error("Validation Error: Missing required fields (user_id, timestamp).")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Missing required fields (user_id, timestamp)'})
+            }
+
+        # Convert timestamp to integer if it's not already
+        try:
+            timestamp = int(timestamp)
+        except ValueError:
+            logger.error(f"Invalid timestamp format: {timestamp}")
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Invalid timestamp format. Must be an integer epoch.'})
+            }
+
+        # Calculate threat score
+        threat_score = calculate_audio_threat_score(volume_level, sentiment_score)
+
+        # Store analysis in DynamoDB - Convert floats to Decimal
+        item = {
+            'user_id': user_id,
+            'timestamp': timestamp,
+            'volume_level': Decimal(str(volume_level)) if volume_level is not None else None,
+            'sentiment_score': Decimal(str(sentiment_score)) if sentiment_score is not None else None,
+            'language_code': language_code,
+            'threat_score': Decimal(str(threat_score)),
+            'analysis_time': datetime.utcnow().isoformat()
+        }
+        audio_analysis_table.put_item(Item=item)
+        logger.info(f"Audio analysis stored for user {user_id} at {timestamp} with score {threat_score}")
+
+        # In a real scenario, you might store the audio_data_base64 in S3
+        # For this example, we're just processing the metadata.
+
+        # Invoke Risk Assessor Lambda if threat score exceeds threshold
+        if threat_score >= THREAT_SCORE_TRIGGER_THRESHOLD:
+            logger.info(f"Threat score {threat_score} >= threshold {THREAT_SCORE_TRIGGER_THRESHOLD}. Invoking Risk Assessor.")
+            lambda_client.invoke(
+                FunctionName=RISK_ASSESSMENT_LAMBDA_NAME,
+                InvocationType='Event',  # Asynchronous invocation
+                Payload=json.dumps({
+                    'user_id': user_id,
+                    'trigger_type': 'audio_analysis',
+                    'timestamp': timestamp,
+                    'threat_score': threat_score
+                })
+            )
+            logger.info("Risk Assessor Lambda invoked.")
+
         return {
             'statusCode': 200,
-            'body': json.dumps({
-                'threat_score': threat_score,
-                'analysis_complete': True,
-                'emergency_triggered': threat_score > 0.7
-            })
+            'body': json.dumps({'message': 'Audio analysis processed successfully', 'threat_score': threat_score})
         }
-        
+
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error: {e}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Invalid JSON in request body'})
+        }
+    except KeyError as e:
+        logger.error(f"Missing expected key in event body: {e}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': f'Missing expected key: {e}'})
+        }
     except Exception as e:
-        logger.error(f"Error processing audio: {str(e)}")
+        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         return {
             'statusCode': 500,
-            'body': json.dumps({'error': 'Audio processing failed'})
+            'body': json.dumps({'error': 'Internal server error'})
         }
-
-def analyze_audio_threats(audio_bytes, user_id, timestamp):
-    """Analyze audio for threat indicators"""
-    try:
-        # Convert audio to text using Amazon Transcribe
-        transcription = transcribe_audio(audio_bytes, user_id, timestamp)
-        
-        if not transcription:
-            return 0.0
-        
-        # Analyze text for threats
-        text_threat_score = analyze_text_threats(transcription)
-        
-        # Analyze audio features (volume, pitch, etc.)
-        audio_threat_score = analyze_audio_features(audio_bytes)
-        
-        # Combine scores
-        combined_score = (text_threat_score * 0.7) + (audio_threat_score * 0.3)
-        
-        return min(combined_score, 1.0)
-        
-    except Exception as e:
-        logger.error(f"Error in threat analysis: {str(e)}")
-        return 0.0
-
-def transcribe_audio(audio_bytes, user_id, timestamp):
-    """Transcribe audio using Amazon Transcribe"""
-    try:
-        # Upload audio to S3 for Transcribe
-        bucket_name = 'safesakhi-audio-temp'
-        key = f"audio/{user_id}/{timestamp}.wav"
-        
-        s3.put_object(
-            Bucket=bucket_name,
-            Key=key,
-            Body=audio_bytes,
-            ContentType='audio/wav'
-        )
-        
-        # Start transcription job
-        job_name = f"audio-analysis-{user_id}-{timestamp}"
-        job_uri = f"s3://{bucket_name}/{key}"
-        
-        transcribe.start_transcription_job(
-            TranscriptionJobName=job_name,
-            Media={'MediaFileUri': job_uri},
-            MediaFormat='wav',
-            LanguageCode='en-US'
-        )
-        
-        # Wait for completion (in production, use async processing)
-        import time
-        while True:
-            status = transcribe.get_transcription_job(
-                TranscriptionJobName=job_name
-            )
-            if status['TranscriptionJob']['TranscriptionJobStatus'] in ['COMPLETED', 'FAILED']:
-                break
-            time.sleep(2)
-        
-        if status['TranscriptionJob']['TranscriptionJobStatus'] == 'COMPLETED':
-            # Get transcript
-            transcript_uri = status['TranscriptionJob']['Transcript']['TranscriptFileUri']
-            import urllib.request
-            with urllib.request.urlopen(transcript_uri) as response:
-                transcript_data = json.loads(response.read().decode())
-                return transcript_data['results']['transcripts'][0]['transcript']
-        
-        return None
-        
-    except Exception as e:
-        logger.error(f"Transcription error: {str(e)}")
-        return None
-
-def analyze_text_threats(text):
-    """Analyze transcribed text for threat indicators"""
-    if not text:
-        return 0.0
-    
-    text_lower = text.lower()
-    threat_score = 0.0
-    
-    # Check for direct threat keywords
-    keyword_matches = sum(1 for keyword in THREAT_KEYWORDS if keyword in text_lower)
-    threat_score += min(keyword_matches * 0.3, 0.6)
-    
-    # Check for distress patterns
-    pattern_matches = sum(1 for pattern in DISTRESS_PATTERNS if pattern in text_lower)
-    threat_score += min(pattern_matches * 0.4, 0.8)
-    
-    # Use Amazon Comprehend for sentiment analysis
-    try:
-        sentiment_response = comprehend.detect_sentiment(
-            Text=text,
-            LanguageCode='en'
-        )
-        
-        if sentiment_response['Sentiment'] == 'NEGATIVE':
-            negative_score = sentiment_response['SentimentScore']['Negative']
-            threat_score += negative_score * 0.3
-            
-    except Exception as e:
-        logger.error(f"Sentiment analysis error: {str(e)}")
-    
-    return min(threat_score, 1.0)
-
-def analyze_audio_features(audio_bytes):
-    """Analyze raw audio features for distress indicators"""
-    try:
-        # Convert bytes to numpy array
-        audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
-        
-        # Normalize audio
-        audio_normalized = audio_array.astype(np.float32) / 32768.0
-        
-        # Calculate features
-        rms_energy = np.sqrt(np.mean(audio_normalized**2))
-        zero_crossing_rate = np.mean(librosa.feature.zero_crossing_rate(audio_normalized))
-        
-        # High energy + high ZCR often indicates shouting/distress
-        energy_score = min(rms_energy * 2, 1.0)  # Normalize to 0-1
-        zcr_score = min(zero_crossing_rate * 10, 1.0)  # Normalize to 0-1
-        
-        # Combine features
-        audio_threat_score = (energy_score * 0.6) + (zcr_score * 0.4)
-        
-        return audio_threat_score
-        
-    except Exception as e:
-        logger.error(f"Audio feature analysis error: {str(e)}")
-        return 0.0
-
-def store_audio_analysis(user_id, timestamp, threat_score, location):
-    """Store analysis results in DynamoDB"""
-    try:
-        table = dynamodb.Table('SafeSakhi-AudioAnalysis')
-        table.put_item(
-            Item={
-                'user_id': user_id,
-                'timestamp': timestamp,
-                'threat_score': float(threat_score),
-                'location': location,
-                'analysis_type': 'audio',
-                'created_at': timestamp
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error storing audio analysis: {str(e)}")
-
-def trigger_risk_assessment(user_id, trigger_type, score, context):
-    """Trigger risk assessment Lambda"""
-    try:
-        lambda_client = boto3.client('lambda')
-        payload = {
-            'user_id': user_id,
-            'trigger_type': trigger_type,
-            'threat_score': score,
-            'context': context
-        }
-        
-        lambda_client.invoke(
-            FunctionName='SafeSakhi-RiskAssessment',
-            InvocationType='Event',  # Async invocation
-            Payload=json.dumps(payload)
-        )
-        
-    except Exception as e:
-        logger.error(f"Error triggering risk assessment: {str(e)}")
