@@ -213,5 +213,3 @@ Before deploying to a production environment, review these critical aspects:
     * Implement static code analysis tools (e.g., Bandit for Python) in your CI/CD pipeline.
 
 ---
-
-I hope these detailed suggestions help you build a robust and production-ready SafeSakhi platform! Let me know when you regain access to your AWS account, and we can proceed with actual deployment and testing.
