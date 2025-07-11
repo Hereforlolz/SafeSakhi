@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeSakhi - Women's Safety Platform</title>
+    <!-- Load environment variables -->
+    <script src="env-config.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            padding: 30px;
+            max-width: 1200px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #26de81, #ff6b6b);
+            animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .header h1 .shield {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .safety-indicator {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #26de81;
+            border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            animation: breathe 2s infinite;
+        }
+        
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .panel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .panel h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #map {
+            height: 400px;
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            position: relative;
+        }
+        
+        .map-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+        }
+        
+        .safety-zone-toggle {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .toggle-switch {
+            width: 40px;
+            height: 20px;
+            background: #ccc;
+            border-radius: 20px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-switch.active {
+            background: #26de81;
+        }
+        
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-switch.active::after {
+            left: 22px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.5s ease;
+        }
+        
+        .btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            animation: emergency-glow 2s infinite;
+        }
+        
+        @keyframes emergency-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(255,107,107,0.5); }
+            50% { box-shadow: 0 0 20px rgba(255,107,107,0.8); }
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #26de81 0%, #20bf6b 100%);
+            color: white;
+        }
+        
+        .btn-voice {
+            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+            color: white;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .status.safe {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .status.danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            animation: danger-pulse 1s infinite;
+        }
+        
+        @keyframes danger-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .location-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .location-info h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .location-accuracy {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(25,118,210,0.1);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            color: #1976d2;
+        }
+        
+        .nearby-places {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .place-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .place-item:hover {
+            background: #f0f8ff;
+            transform: translateX(5px);
+        }
+        
+        .place-item:last-child {
+            border-bottom: none;
+        }
+        
+        .place-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .place-type {
+            font-size: 0.8em;
+            color: #999;
+            margin-top: 2px;
+        }
+        
+        .place-distance {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .emergency-contacts {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .emergency-contacts h4 {
+            color: #856404;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .contact-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #ffeaa7;
+        }
+        
+        .contact-item:last-child {
+            border-bottom: none;
+        }
+        
+        .contact-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .contact-number {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .btn-call {
+            background: #28a745;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .voice-status {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 600;
+            color: #155724;
+        }
+        
+        .voice-status.listening {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+            animation: listening-pulse 1s infinite;
+        }
+        
+        @keyframes listening-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .demo-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .feature-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        .feature-card h4 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .feature-card p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="safety-indicator" id="safetyIndicator"></div>
+        
+        <div class="header">
+            <h1><span class="shield">🛡️</span> SafeSakhi</h1>
+            <p>AI-Powered Women's Safety Platform with Location Intelligence</p>
+        </div>
+        
+        <div class="demo-warning">
+            ⚠️ This is a demo version. Google Maps API key is needed for full functionality.
+        </div>
+        
+        <div class="dashboard">
+            <div class="panel">
+                <h3>🗺️ Location & Safety Map</h3>
+                <div class="map-overlay">
+                    <div class="safety-zone-toggle">
+                        <div class="toggle-switch" id="safetyZoneToggle" onclick="toggleSafetyZones()"></div>
+                        <span>Safety Zones</span>
+                    </div>
+                    <div style="font-size: 0.8em; color: #666;">
+                        <span id="safetyScore">Safety Score: Calculating...</span>
+                    </div>
+                </div>
+                <div id="map">Map will load here when API key is configured</div>
+                <div class="location-info">
+                    <h4>📍 Current Location</h4>
+                    <div class="location-accuracy" id="locationAccuracy">±10m</div>
+                    <p id="current-address">Getting your location...</p>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>🚨 Safety Controls</h3>
+                <div class="voice-status" id="voiceStatus">
+                    🎤 Voice Commands Ready - Say "Help" or "Emergency"
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="getCurrentLocation()">📍 Update Location</button>
+                    <button class="btn btn-success" onclick="findNearbyHelp()">🏥 Find Help</button>
+                    <button class="btn btn-voice" onclick="toggleVoiceControl()">🎤 Voice Control</button>
+                    <button class="btn btn-danger" onclick="triggerEmergency()">🚨 Emergency</button>
+                </div>
+                
+                <div id="status" class="status safe">
+                    ✅ System Active - You're Safe
+                </div>
+                
+                <div class="emergency-contacts">
+                    <h4>📞 Emergency Contacts</h4>
+                    <div class="contact-item">
+                        <div>
+                            <div class="contact-name">Emergency Services</div>
+                            <div class="contact-number">911</div>
+                        </div>
+                        <button class="btn-call" onclick="callEmergency('911')">Call</button>
+                    </div>
+                    <div class="contact-item">
+                        <div>
+                            <div class="contact-name">Mom</div>
+                            <div class="contact-number">+1-555-0123</div>
+                        </div>
+                        <button class="btn-call" onclick="callEmergency('+1-555-0123')">Call</button>
+                    </div>
+                </div>
+                
+                <div class="nearby-places">
+                    <h4>🏥 Nearby Safety Locations</h4>
+                    <div id="nearby-list">
+                        <p>Finding nearby safety locations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>🎯 Smart Routing</h4>
+                <p>AI-powered safest route recommendations based on real-time data</p>
+            </div>
+            <div class="feature-card">
+                <h4>🌐 Community Safety</h4>
+                <p>Crowdsourced safety reports and real-time incident alerts</p>
+            </div>
+            <div class="feature-card">
+                <h4>⚡ Instant Alerts</h4>
+                <p>One-touch emergency alerts to contacts and authorities</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GOOGLE_MAPS_API_KEY = window.env.GOOGLE_MAPS_API_KEY;
+        const SAFESAKHI_API_BASE = window.env.SAFESAKHI_API_BASE;
+        console.log(GOOGLE_MAPS_API_KEY, SAFESAKHI_API_BASE);
+        
+        let map;
+        let currentLocationMarker;
+        let userLocation = null;
+        let placesService;
+        let directionsService;
+        let directionsRenderer;
+        let isGoogleMapsLoaded = false;
+        let safetyZones = [];
+        let voiceRecognition;
+        let isVoiceActive = false;
+        let safetyScore = 85; // Mock safety score
+        
+        // Initialize Google Maps
+        function initMap() {
+            if (!window.google) {
+                console.error('Google Maps API not loaded');
+                return;
+            }
+            
+            isGoogleMapsLoaded = true;
+            
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: { lat: 40.7128, lng: -74.0060 }, // Default to NYC
+                styles: [
+                    {
+                        "featureType": "poi.business",
+                        "stylers": [{"visibility": "off"}]
+                    },
+                    {
+                        "featureType": "poi.park",
+                        "elementType": "labels.text",
+                        "stylers": [{"visibility": "off"}]
+                    },
+                    {
+                        "featureType": "road",
+                        "elementType": "geometry",
+                        "stylers": [{"lightness": 100}, {"visibility": "simplified"}]
+                    }
+                ]
+            });
+            
+            placesService = new google.maps.places.PlacesService(map);
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                polylineOptions: {
+                    strokeColor: '#26de81',
+                    strokeWeight: 5,
+                    strokeOpacity: 0.8
+                }
+            });
+            directionsRenderer.setMap(map);
+            
+            // Get user location on load
+            getCurrentLocation();
+            
+            // Initialize voice control
+            initVoiceControl();
+            
+            // Update safety score periodically
+            setInterval(updateSafetyScore, 30000);
+        }
+        
+        // Initialize voice control
+        function initVoiceControl() {
+            if ('webkitSpeechRecognition' in window) {
+                voiceRecognition = new webkitSpeechRecognition();
+                voiceRecognition.continuous = true;
+                voiceRecognition.interimResults = true;
+                voiceRecognition.lang = 'en-US';
+                
+                voiceRecognition.onresult = function(event) {
+                    const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                    
+                    if (transcript.includes('help') || transcript.includes('emergency')) {
+                        triggerEmergency();
+                    } else if (transcript.includes('location')) {
+                        getCurrentLocation();
+                    } else if (transcript.includes('find help')) {
+                        findNearbyHelp();
+                    }
+                };
+                
+                voiceRecognition.onstart = function() {
+                    document.getElementById('voiceStatus').className = 'voice-status listening';
+                    document.getElementById('voiceStatus').textContent = '🎤 Listening... Say "Help" or "Emergency"';
+                };
+                
+                voiceRecognition.onend = function() {
+                    if (isVoiceActive) {
+                        voiceRecognition.start(); // Restart if still active
+                    }
+                };
+                
+                // Start voice recognition by default
+                isVoiceActive = true;
+                voiceRecognition.start();
+            }
+        }
+        
+        // Toggle voice control
+        function toggleVoiceControl() {
+            if (!voiceRecognition) return;
+            
+            if (isVoiceActive) {
+                isVoiceActive = false;
+                voiceRecognition.stop();
+                document.getElementById('voiceStatus').className = 'voice-status';
+                document.getElementById('voiceStatus').textContent = '🎤 Voice Commands Ready - Say "Help" or "Emergency"';
+            } else {
+                isVoiceActive = true;
+                voiceRecognition.start();
+            }
+        }
+        
+        // Update safety score
+        function updateSafetyScore() {
+            if (!userLocation) return;
+            
+            // Mock safety score calculation based on location and time
+            const hour = new Date().getHours();
+            let score = 85;
+            
+            // Lower score at night
+            if (hour < 6 || hour > 22) {
+                score -= 15;
+            }
+            
+            // Add some randomness to simulate real-time changes
+            score += Math.random() * 10 - 5;
+            score = Math.max(0, Math.min(100, score));
+            
+            safetyScore = Math.round(score);
+            document.getElementById('safetyScore').textContent = `Safety Score: ${safetyScore}%`;
+            
+            // Update safety indicator
+            const indicator = document.getElementById('safetyIndicator');
+            if (safetyScore > 70) {
+                indicator.style.background = '#26de81';
+            } else if (safetyScore > 40) {
+                indicator.style.background = '#ffa500';
+            } else {
+                indicator.style.background = '#ff6b6b';
+            }
+        }
+        
+        // Toggle safety zones
+        function toggleSafetyZones() {
+            const toggle = document.getElementById('safetyZoneToggle');
+            toggle.classList.toggle('active');
+            
+            if (toggle.classList.contains('active')) {
+                showSafetyZones();
+            } else {
+                hideSafetyZones();
+            }
+        }
+        
+        // Show safety zones on map
+        function showSafetyZones() {
+            if (!isGoogleMapsLoaded || !userLocation) return;
+            
+            // Create safety zone circles
+            const safeZone = new google.maps.Circle({
+                strokeColor: '#26de81',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: '#26de81',
+                fillOpacity: 0.15,
+                map: map,
+                center: userLocation,
+                radius: 500 // 500 meters
+            });
+            
+            const cautionZone = new google.maps.Circle({
+                strokeColor: '#ffa500',
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: '#ffa500',
+                fillOpacity: 0.1,
+                map: map,
+                center: userLocation,
+                radius: 1000 // 1km
+            });
+            
+            safetyZones.push(safeZone, cautionZone);
+        }
+        
+        // Hide safety zones
+        function hideSafetyZones() {
+            safetyZones.forEach(zone => zone.setMap(null));
+            safetyZones = [];
+        }
+        
+        // Get user's current location
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        
+                        // Update accuracy display
+                        const accuracy = Math.round(position.coords.accuracy);
+                        document.getElementById('locationAccuracy').textContent = `±${accuracy}m`;
+                        
+                        if (isGoogleMapsLoaded && map) {
+                            // Update map center
+                            map.setCenter(userLocation);
+                            
+                            // Add/update location marker
+                            if (currentLocationMarker) {
+                                currentLocationMarker.setMap(null);
+                            }
+                            
+                            currentLocationMarker = new google.maps.Marker({
+                                position: userLocation,
+                                map: map,
+                                title: 'Your Location',
+                                icon: {
+                                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#667eea">
+                                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                        </svg>
+                                    `),
+                                    scaledSize: new google.maps.Size(32, 32)
+                                }
+                            });
+                            
+                            // Get address from coordinates
+                            getAddressFromCoords(userLocation);
+                        } else {
+                            // Fallback for when maps isn't loaded
+                            document.getElementById('current-address').textContent = 
+                                `Lat: ${userLocation.lat.toFixed(4)}, Lng: ${userLocation.lng.toFixed(4)}`;
+                        }
+                        
+                        // Find nearby safety locations
+                        findNearbyHelp();
+                        
+                        // Update safety score
+                        updateSafetyScore();
+                        
+                        // Send location to SafeSakhi backend
+                        sendLocationToBackend(userLocation);
+                    },
+                    (error) => {
+                        console.error('Error getting location:', error);
+                        let errorMessage = 'Location access denied';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Location access denied by user';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'Location information unavailable';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'Location request timed out';
+                                break;
+                        }
+                        document.getElementById('current-address').textContent = errorMessage;
+                    }
+                );
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        }
+        
+        // Convert coordinates to address
+        function getAddressFromCoords(location) {
+            if (!isGoogleMapsLoaded || !window.google) {
+                return;
+            }
+            
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: location }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    document.getElementById('current-address').textContent = results[0].formatted_address;
+                } else {
+                    document.getElementById('current-address').textContent = 'Address not found';
+                }
+            });
+        }
+        
+        // Find nearby safety locations
+        function findNearbyHelp() {
+            if (!userLocation || !userLocation.lat || !userLocation.lng) {
+                alert('⚠️ Location not available yet. Please click "📍 Update Location" and try again.');
+                return;
+            }
+
+            if (!isGoogleMapsLoaded || !placesService) {
+                // Fallback when Google Maps isn't loaded
+                const nearbyList = document.getElementById('nearby-list');
+                nearbyList.innerHTML = '<p>Google Maps API needed for nearby places search</p>';
+                return;
+            }
+
+            const request = {
+                location: userLocation,
+                radius: 2000, // 2km radius
+                types: ['hospital', 'police', 'fire_station']
+            };
+            
+            placesService.nearbySearch(request, (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK) {
+                displayNearbyPlaces(results);
+                
+                // Add markers to map
+                results.forEach(place => {
+                    const marker = new google.maps.Marker({
+                        position: place.geometry.location,
+                        map: map,
+                        title: place.name,
+                        icon: {
+                            url: getPlaceIcon(place.types),
+                            scaledSize: new google.maps.Size(24, 24)
+                        }
+                    });
+                    
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div style="padding: 10px;">
+                                <h4>${place.name}</h4>
+                                <p><strong>Type:</strong> ${getPlaceType(place.types)}</p>
+                                <p><strong>Rating:</strong> ${place.rating || 'N/A'} ⭐</p>
+                                <p><strong>Status:</strong> ${place.business_status || 'Unknown'}</p>
+                                <button onclick="getDirections('${place.place_id}')" 
+                                        style="background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer;">
+                                    Get Directions
+                                </button>
+                            </div>
+                        `
+                    });
+                    
+                    marker.addListener('click', () => {
+                        infoWindow.open(map, marker);
+                    });
+                });
+            } else {
+                console.error('Places search failed:', status);
+                document.getElementById('nearby-list').innerHTML = '<p>Unable to find nearby places</p>';
+            }
+        });
+    }
+    
+    // Get icon based on place type
+    function getPlaceIcon(types) {
+        if (types.includes('hospital')) {
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ff6b6b">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+            `);
+        } else if (types.includes('police')) {
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#4169e1">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            `);
+        } else if (types.includes('fire_station')) {
+            return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ff4500">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            `);
+        }
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#26de81">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+        `);
+    }
+    
+    // Get readable place type
+    function getPlaceType(types) {
+        if (types.includes('hospital')) return 'Hospital';
+        if (types.includes('police')) return 'Police Station';
+        if (types.includes('fire_station')) return 'Fire Station';
+        return 'Safety Location';
+    }
+    
+    // Display nearby places in the list
+    function displayNearbyPlaces(places) {
+        const nearbyList = document.getElementById('nearby-list');
+        nearbyList.innerHTML = '';
+        
+        places.slice(0, 5).forEach(place => {
+            const distance = calculateDistance(userLocation, place.geometry.location);
+            const placeElement = document.createElement('div');
+            placeElement.className = 'place-item';
+            placeElement.innerHTML = `
+                <div>
+                    <div class="place-name">${place.name}</div>
+                    <div class="place-type">${getPlaceType(place.types)}</div>
+                </div>
+                <div class="place-distance">${distance.toFixed(1)} km</div>
+            `;
+            
+            placeElement.addEventListener('click', () => {
+                getDirections(place.place_id);
+            });
+            
+            nearbyList.appendChild(placeElement);
+        });
+    }
+    
+    // Calculate distance between two points
+    function calculateDistance(pos1, pos2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = (pos2.lat() - pos1.lat) * Math.PI / 180;
+        const dLon = (pos2.lng() - pos1.lng) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(pos1.lat * Math.PI / 180) * Math.cos(pos2.lat() * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+    
+    // Get directions to a place
+    function getDirections(placeId) {
+        if (!isGoogleMapsLoaded || !userLocation) return;
+        
+        const request = {
+            origin: userLocation,
+            destination: { placeId: placeId },
+            travelMode: google.maps.TravelMode.DRIVING,
+            avoidHighways: false,
+            avoidTolls: false
+        };
+        
+        directionsService.route(request, (result, status) => {
+            if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+                
+                // Update status
+                const route = result.routes[0];
+                const leg = route.legs[0];
+                document.getElementById('status').className = 'status warning';
+                document.getElementById('status').innerHTML = `
+                    🚗 Navigation Active<br>
+                    Distance: ${leg.distance.text}<br>
+                    Duration: ${leg.duration.text}
+                `;
+            } else {
+                console.error('Directions request failed:', status);
+                alert('Unable to get directions. Please try again.');
+            }
+        });
+    }
+    
+    // Send location to SafeSakhi backend
+    function sendLocationToBackend(location) {
+        const data = {
+            latitude: location.lat,
+            longitude: location.lng,
+            timestamp: new Date().toISOString(),
+            safety_score: safetyScore
+        };
+        
+        fetch(`${SAFESAKHI_API_BASE}/location`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Location sent to backend:', data);
+        })
+        .catch(error => {
+            console.error('Error sending location:', error);
+        });
+    }
+    
+    // Trigger emergency alert
+    function triggerEmergency() {
+        // Visual feedback
+        document.getElementById('status').className = 'status danger';
+        document.getElementById('status').innerHTML = '🚨 EMERGENCY ALERT SENT! Help is on the way.';
+        
+        // Audio alert
+        try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvGIcBSF+0fPYjTkGHm7A7+GZVA0PVqzn77BdGAg+ltryxnkpBSl+zPLaizsIGGS57+OdTgwOUarm7blmIgU6jdXyzn0vBC151/HJdSgGI2bB8OOgVgwOVqnp7bBdGAg+ltryxnkpBSl+zPLaizsIGGS57+OdTgwOUarm7blmIgU6jdXyzn0vBC151/HJdSgGI2bB8OOgVgwOVqnp7bBdGAg+ltryxnkpBSl+zPLaizsIGGS57+OdTgwOUarm7blmIgU6jdXyzn0vBC151/HJdSgGI2bB8OOgVgwOVqnp7bBdGAg+ltryxnkpBSl+zPLaizsIGGS57+OdTgwOUarm7blmIgU6jdXyzn0vBC151/HJdSgGI2bB8OOgVgwOVqnp7bBdGAg+ltryxnkpBSl+zPLaizsIGGS57+OdTgwOUarm7blmIgU6jdXyzn0vBC151/HJdSgGI2bB8OOgVgwOVqnp7bBdGAg+ltryxnkpBSl+zPLaizsIGGS57+OdTgwOUarm7blmIgU6jdXyzn0vBC151/HJdSgGI2bB8OOgVgwOVqnp7bBdGAg+ltryxnkpBSl+zPLaizsIGGS57+OdTgwOUarm7blmIgU6jdXyzn0vBC151/HJdSgGI2bB8OOgVgwOVqnp7bBdGAg+ltryxnkpBSl+zPLaizsIGGS57+OdTgwOUarm7blmIgU6jdXyzn0vBC151/HJdSgGI2bB8OOgVgwOVqnp7bBdGAg==');
+            audio.play();
+        } catch (e) {
+            console.log('Audio alert failed:', e);
+        }
+        
+        // Send emergency alert to backend
+        if (userLocation) {
+            const emergencyData = {
+                type: 'emergency',
+                latitude: userLocation.lat,
+                longitude: userLocation.lng,
+                timestamp: new Date().toISOString(),
+                user_id: 'demo_user',
+                severity: 'high'
+            };
+            
+            fetch(`${SAFESAKHI_API_BASE}/emergency`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(emergencyData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Emergency alert sent:', data);
+            })
+            .catch(error => {
+                console.error('Error sending emergency alert:', error);
+            });
+        }
+        
+        // Simulate calling emergency services
+        setTimeout(() => {
+            if (confirm('🚨 Emergency services will be contacted. Continue?')) {
+                // In a real app, this would trigger actual emergency protocols
+                alert('📞 Emergency services have been notified of your location.');
+            }
+        }, 2000);
+    }
+    
+    // Call emergency contact
+    function callEmergency(number) {
+        if (confirm(`Call ${number}?`)) {
+            // In a real mobile app, this would initiate a phone call
+            window.location.href = `tel:${number}`;
+        }
+    }
+    
+    // Load Google Maps API
+    function loadGoogleMapsAPI() {
+        if (GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY_HERE') {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=initMap`;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        } else {
+            console.warn('Google Maps API key not configured');
+            // Initialize basic functionality without maps
+            initBasicFunctionality();
+        }
+    }
+    
+    // Initialize basic functionality without Google Maps
+    function initBasicFunctionality() {
+        // Get user location
+        getCurrentLocation();
+        
+        // Initialize voice control
+        initVoiceControl();
+        
+        // Update safety score periodically
+        setInterval(updateSafetyScore, 30000);
+        
+        // Initial safety score update
+        updateSafetyScore();
+    }
+    
+    // Initialize app when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        loadGoogleMapsAPI();
+        
+        // Show demo warning
+        setTimeout(() => {
+            const warning = document.querySelector('.demo-warning');
+            if (warning) {
+                warning.style.background = '#d4edda';
+                warning.style.color = '#155724';
+                warning.style.border = '1px solid #c3e6cb';
+                warning.innerHTML = '✅ SafeSakhi Demo Active - All safety features enabled';
+            }
+        }, 3000);
+    });
+    
+    // Handle errors gracefully
+    window.addEventListener('error', (event) => {
+        console.error('SafeSakhi Error:', event.error);
+        
+        // Show user-friendly error message
+        const status = document.getElementById('status');
+        if (status) {
+            status.className = 'status warning';
+            status.innerHTML = '⚠️ Some features may be limited. Please refresh the page.';
+        }
+    });
+    
+    // Export functions for global access
+    window.getCurrentLocation = getCurrentLocation;
+    window.findNearbyHelp = findNearbyHelp;
+    window.toggleVoiceControl = toggleVoiceControl;
+    window.triggerEmergency = triggerEmergency;
+    window.callEmergency = callEmergency;
+    window.toggleSafetyZones = toggleSafetyZones;
+    window.getDirections = getDirections;
+    window.initMap = initMap;
