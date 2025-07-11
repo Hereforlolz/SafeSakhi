@@ -12,19 +12,6 @@ Globals:
 Resources:
 
   ##########################
-  # Lambda Layer for googlemaps
-  ##########################
-
-  GoogleMapsLayer:
-    Type: AWS::Serverless::LayerVersion
-    Properties:
-      LayerName: SafeSakhi-GoogleMapsLayer
-      Description: Python googlemaps package
-      ContentUri: googlemaps_layer.zip
-      CompatibleRuntimes:
-        - python3.9
-
-  ##########################
   # Lambda Functions
   ##########################
 
@@ -259,8 +246,6 @@ Resources:
       FunctionName: SafeSakhi-EmergencyResponse
       CodeUri: ../lambdas/emergency_responder/
       Handler: handler.lambda_handler
-      Layers:
-        - !Ref GoogleMapsLayer
       Events:
         EmergencyApiTrigger:
           Type: Api
@@ -300,6 +285,13 @@ Resources:
               Resource:
                 - !GetAtt EvidenceBucket.Arn
                 - !Sub "${EvidenceBucket.Arn}/*"
+        - Statement:
+            - Sid: DynamoDBWriteLocationTracking
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !GetAtt LocationTrackingTable.Arn
+
 
   ##########################
   # DynamoDB Tables
@@ -411,6 +403,23 @@ Resources:
           KeyType: HASH
         - AttributeName: created_at
           KeyType: RANGE
+
+  LocationTrackingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SafeSakhi-LocationTracking
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+
 
   ##########################
   # S3 Buckets
@@ -529,3 +538,7 @@ Outputs:
   EvidenceBucket:
     Description: "S3 Bucket for Evidence Storage"
     Value: !Ref EvidenceBucket
+  LocationTrackingTable:
+    Description: "DynamoDB Table for Location Tracking"
+    Value: !Ref LocationTrackingTable
+

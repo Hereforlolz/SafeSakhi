@@ -1,0 +1,11 @@
+{
+  "user_id": "test-user-123",
+  "created_at_epoch": 1720659600,
+  "motion_activity": 0.05,
+  "location": {
+    "latitude": 37.7749,
+    "longitude": -122.4194,
+    "accuracy": 10
+  },
+  "is_stationary": false
+}

@@ -3,6 +3,7 @@ import os
 import boto3
 import logging
 from datetime import datetime
+from decimal import Decimal
 
 # Configure logging
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -26,6 +27,13 @@ THREAT_SCORE_TRIGGER_THRESHOLD = float(os.environ.get('THREAT_SCORE_TRIGGER_THRE
 MOTION_ACTIVITY_THRESHOLD = float(os.environ.get('MOTION_ACTIVITY_THRESHOLD', '0.1'))
 LOCATION_STATIONARY_THRESHOLD_METERS = float(os.environ.get('LOCATION_STATIONARY_THRESHOLD_METERS', '50'))
 STATIONARY_DURATION_SECONDS = int(os.environ.get('STATIONARY_DURATION_SECONDS', '300'))
+
+
+def decimal_default(obj):
+    """Helper function to convert float to Decimal for DynamoDB"""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    return obj
 
 
 def calculate_motion_threat_score(motion_activity, is_stationary, location_accuracy=None):
@@ -103,20 +111,24 @@ def lambda_handler(event, context):
         # Calculate threat score
         threat_score = calculate_motion_threat_score(motion_activity, is_stationary, accuracy)
 
-        # Store analysis in DynamoDB
+        # Store analysis in DynamoDB - Convert floats to Decimal for DynamoDB
         item = {
             'user_id': user_id,
             'created_at_epoch': created_at_epoch,
-            'motion_activity': motion_activity,
+            'motion_activity': Decimal(str(motion_activity)),
             'location': {
-                'latitude': latitude,
-                'longitude': longitude,
-                'accuracy': accuracy
+                'latitude': Decimal(str(latitude)),
+                'longitude': Decimal(str(longitude)),
+                'accuracy': Decimal(str(accuracy)) if accuracy is not None else None
             },
             'is_stationary': is_stationary,
-            'threat_score': threat_score,
+            'threat_score': Decimal(str(threat_score)),
             'analysis_time': datetime.utcnow().isoformat()
         }
+        
+        # Remove None values from location
+        item['location'] = {k: v for k, v in item['location'].items() if v is not None}
+        
         motion_analysis_table.put_item(Item=item)
         logger.info(f"Motion analysis stored for user {user_id} at {created_at_epoch} with score {threat_score}")
 

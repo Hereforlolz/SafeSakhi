@@ -34,10 +34,6 @@ Women's safety technology hasn't evolved much beyond basic panic buttons and loc
 
 The platform addresses a real gap in personal safety technology by combining multiple detection methods into a unified, intelligent system that works in the background without requiring conscious activation during emergencies.
 
-## Impact Potential
-
-*Initial user research across 150+ participants indicates 78% would actively use proactive safety detection versus 23% who consistently use traditional panic button apps. The ambient monitoring approach removes the barrier of manual activation during high-stress situations.*
-
 ## Technical Innovation
 
 The multi-modal approach creates redundancy that increases reliability while reducing false positives. By correlating audio patterns, motion signatures, and contextual text analysis, SafeSakhi can distinguish between genuine threats and normal daily activities with high precision.
