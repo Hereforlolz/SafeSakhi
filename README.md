@@ -15,7 +15,7 @@ SafeSakhi is an AI-driven safety platform that detects potential threats to wome
 ```
 lambdas/          – Source code for all AWS Lambda functions
 infrastructure/   – Deployment templates (SAM or Terraform)
-tests/           – Unit tests for each component
+frontend/         – frontend index.html
 ```
 
 ## Development Status
