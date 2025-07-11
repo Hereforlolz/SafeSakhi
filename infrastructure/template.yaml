@@ -4,12 +4,25 @@ Description: SafeSakhi - AI-powered women's safety platform with Audio, Motion, 
 
 Globals:
   Function:
-    Timeout: 30 # Default timeout for all functions
+    Timeout: 30
     Runtime: python3.9
-    MemorySize: 256 # Default memory for all functions
-    Tracing: Active # Enable X-Ray tracing for all functions
+    MemorySize: 256
+    Tracing: Active
 
 Resources:
+
+  ##########################
+  # Lambda Layer for googlemaps
+  ##########################
+
+  GoogleMapsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: SafeSakhi-GoogleMapsLayer
+      Description: Python googlemaps package
+      ContentUri: googlemaps_layer.zip
+      CompatibleRuntimes:
+        - python3.9
 
   ##########################
   # Lambda Functions
@@ -49,7 +62,7 @@ Resources:
                 - s3:ListBucket
               Resource:
                 - !GetAtt TempAudioBucket.Arn
-                - !Sub "${TempAudioBucket.Arn}/*" # CORRECTED S3 ARN SYNTAX
+                - !Sub "${TempAudioBucket.Arn}/*"
         - Statement:
             - Sid: DynamoDBWriteAudioAnalysis
               Effect: Allow
@@ -246,6 +259,14 @@ Resources:
       FunctionName: SafeSakhi-EmergencyResponse
       CodeUri: ../lambdas/emergency_responder/
       Handler: handler.lambda_handler
+      Layers:
+        - !Ref GoogleMapsLayer
+      Events:
+        EmergencyApiTrigger:
+          Type: Api
+          Properties:
+            Path: /emergency-response
+            Method: POST
       Environment:
         Variables:
           LOG_LEVEL: INFO
@@ -268,7 +289,7 @@ Resources:
                 - dynamodb:DeleteItem
               Resource: !GetAtt IncidentHistoryTable.Arn
         - SNSPublishMessagePolicy:
-            TopicName: !Ref EmergencySNSTopic # Corrected to TopicName
+            TopicName: !Ref EmergencySNSTopic
         - Statement:
             - Sid: S3WriteEvidence
               Effect: Allow
@@ -278,7 +299,7 @@ Resources:
                 - s3:ListBucket
               Resource:
                 - !GetAtt EvidenceBucket.Arn
-                - !Sub "${EvidenceBucket.Arn}/*" # CORRECTED S3 ARN SYNTAX
+                - !Sub "${EvidenceBucket.Arn}/*"
 
   ##########################
   # DynamoDB Tables
@@ -360,7 +381,7 @@ Resources:
         - AttributeName: user_id
           KeyType: HASH
 
-  EvidenceTable: # Corrected AttributeDefinitions for TTL
+  EvidenceTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: SafeSakhi-Evidence
@@ -425,8 +446,9 @@ Resources:
       TopicName: SafeSakhi-EmergencyAlerts
 
   ##########################
-  # Lambda Log Groups (for better logging management and retention)
+  # Lambda Log Groups
   ##########################
+
   AudioProcessorFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -474,6 +496,9 @@ Outputs:
   TextAnalyzerApi:
     Description: "API Gateway URL for Text Analyzer"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/text-input"
+  EmergencyResponderApi:
+    Description: "API Gateway URL for Emergency Responder"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/emergency-response"
   AudioAnalysisTable:
     Description: "DynamoDB Table for Audio Analysis Data"
     Value: !Ref AudioAnalysisTable
@@ -484,23 +509,23 @@ Outputs:
     Description: "DynamoDB Table for Text Analysis Data"
     Value: !Ref TextAnalysisTable
   RiskAssessmentsTable:
-    Description: "DynamoDB Table for Risk Assessment History"
+    Description: "DynamoDB Table for Risk Assessments"
     Value: !Ref RiskAssessmentsTable
   UsersTable:
-    Description: "DynamoDB Table for User Profiles"
+    Description: "DynamoDB Table for Users"
     Value: !Ref UsersTable
   EvidenceTable:
-    Description: "DynamoDB Table for High-Threat Evidence"
+    Description: "DynamoDB Table for Evidence"
     Value: !Ref EvidenceTable
   IncidentHistoryTable:
-    Description: "DynamoDB Table for Emergency Incident History"
+    Description: "DynamoDB Table for Incident History"
     Value: !Ref IncidentHistoryTable
+  EmergencySNSTopic:
+    Description: "SNS Topic ARN for Emergency Alerts"
+    Value: !Ref EmergencySNSTopic
   TempAudioBucket:
     Description: "S3 Bucket for Temporary Audio Storage"
     Value: !Ref TempAudioBucket
   EvidenceBucket:
-    Description: "S3 Bucket for Storing Evidence Files (e.g., recorded media)"
+    Description: "S3 Bucket for Evidence Storage"
     Value: !Ref EvidenceBucket
-  EmergencyAlertsTopic:
-    Description: "SNS Topic for Emergency Alerts"
-    Value: !Ref EmergencySNSTopic

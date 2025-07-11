@@ -93,7 +93,7 @@ def lambda_handler(event, context):
         longitude = location.get('longitude')
         accuracy = location.get('accuracy')
 
-        if not all([user_id, timestamp]):
+        if not all([user_id, created_at_epoch]):
             logger.error("Validation Error: Missing required fields (user_id, timestamp).")
             return {
                 'statusCode': 400,

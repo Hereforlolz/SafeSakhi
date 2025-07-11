@@ -60,7 +60,7 @@ def lambda_handler(event, context):
 
 def get_emergency_location_context(location):
     """Get comprehensive location context for emergency response"""
-    if not location or not location.get('lat') or not location.get('lng'):
+    if not isinstance(location, dict) or not location.get('lat') or not location.get('lng'):
         return None
     
     try:
