@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>SafeSakhi - Women's Safety Platform</title>
+    <!-- Load environment variables -->
+    <script src="env-config.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            padding: 30px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .panel h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        #map {
+            height: 400px;
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #26de81 0%, #20bf6b 100%);
+            color: white;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .status.safe {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .status.danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .location-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .location-info h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        
+        .nearby-places {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .place-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .place-item:last-child {
+            border-bottom: none;
+        }
+        
+        .place-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .place-distance {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .demo-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ SafeSakhi</h1>
+            <p>AI-Powered Women's Safety Platform with Location Intelligence</p>
+        </div>
+        
+        <div class="demo-warning">
+            ⚠️ This is a demo version. Google Maps API key is needed for full functionality.
+        </div>
+        
+        <div class="dashboard">
+            <div class="panel">
+                <h3>🗺️ Location & Safety Map</h3>
+                <div id="map">Map will load here when API key is configured</div>
+                <div class="location-info">
+                    <h4>📍 Current Location</h4>
+                    <p id="current-address">Getting your location...</p>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>🚨 Safety Controls</h3>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="getCurrentLocation()">📍 Update Location</button>
+                    <button class="btn btn-success" onclick="findNearbyHelp()">🏥 Find Help</button>
+                    <button class="btn btn-danger" onclick="triggerEmergency()">🚨 Emergency</button>
+                </div>
+                
+                <div id="status" class="status safe">
+                    ✅ System Active - You're Safe
+                </div>
+                
+                <div class="nearby-places">
+                    <h4>🏥 Nearby Safety Locations</h4>
+                    <div id="nearby-list">
+                        <p>Finding nearby safety locations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GOOGLE_MAPS_API_KEY = window.env.GOOGLE_MAPS_API_KEY;
+        const SAFESAKHI_API_BASE = window.env.SAFESAKHI_API_BASE;
+
+        
+        let map;
+        let currentLocationMarker;
+        let userLocation = null;
+        let placesService;
+        let directionsService;
+        let directionsRenderer;
+        let isGoogleMapsLoaded = false;
+        
+        // Initialize Google Maps
+        function initMap() {
+            if (!window.google) {
+                console.error('Google Maps API not loaded');
+                return;
+            }
+            
+            isGoogleMapsLoaded = true;
+            
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: { lat: 40.7128, lng: -74.0060 }, // Default to NYC
+                styles: [
+                    {
+                        "featureType": "poi.business",
+                        "stylers": [{"visibility": "off"}]
+                    },
+                    {
+                        "featureType": "poi.park",
+                        "elementType": "labels.text",
+                        "stylers": [{"visibility": "off"}]
+                    }
+                ]
+            });
+            
+            placesService = new google.maps.places.PlacesService(map);
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+            
+            // Get user location on load
+            getCurrentLocation();
+        }
+        
+        // Get user's current location
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        
+                        if (isGoogleMapsLoaded && map) {
+                            // Update map center
+                            map.setCenter(userLocation);
+                            
+                            // Add/update location marker
+                            if (currentLocationMarker) {
+                                currentLocationMarker.setMap(null);
+                            }
+                            
+                            currentLocationMarker = new google.maps.Marker({
+                                position: userLocation,
+                                map: map,
+                                title: 'Your Location',
+                                icon: {
+                                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#667eea">
+                                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                        </svg>
+                                    `),
+                                    scaledSize: new google.maps.Size(32, 32)
+                                }
+                            });
+                            
+                            // Get address from coordinates
+                            getAddressFromCoords(userLocation);
+                        } else {
+                            // Fallback for when maps isn't loaded
+                            document.getElementById('current-address').textContent = 
+                                `Lat: ${userLocation.lat.toFixed(4)}, Lng: ${userLocation.lng.toFixed(4)}`;
+                        }
+                        
+                        // Find nearby safety locations
+                        findNearbyHelp();
+                        
+                        // Send location to SafeSakhi backend
+                        sendLocationToBackend(userLocation);
+                    },
+                    (error) => {
+                        console.error('Error getting location:', error);
+                        let errorMessage = 'Location access denied';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Location access denied by user';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'Location information unavailable';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'Location request timed out';
+                                break;
+                        }
+                        document.getElementById('current-address').textContent = errorMessage;
+                    }
+                );
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        }
+        
+        // Convert coordinates to address
+        function getAddressFromCoords(location) {
+            if (!isGoogleMapsLoaded || !window.google) {
+                return;
+            }
+            
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: location }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    document.getElementById('current-address').textContent = results[0].formatted_address;
+                } else {
+                    document.getElementById('current-address').textContent = 'Address not found';
+                }
+            });
+        }
+        
+        // Find nearby safety locations
+        function findNearbyHelp() {
+            if (!userLocation || !userLocation.lat || !userLocation.lng) {
+                alert('⚠️ Location not available yet. Please click "📍 Update Location" and try again.');
+                return;
+            }
+
+            if (!isGoogleMapsLoaded || !placesService) {
+                // Fallback when Google Maps isn't loaded
+                const nearbyList = document.getElementById('nearby-list');
+                nearbyList.innerHTML = '<p>Google Maps API needed for nearby places search</p>';
+                return;
+            }
+
+            const request = {
+                location: userLocation,
+                radius: 2000, // 2km radius
+                types: ['hospital', 'police', 'fire_station']
+            };
+            
+            placesService.nearbySearch(request, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    displayNearbyPlaces(results);
+                    addPlaceMarkersToMap(results);
+                } else {
+                    console.error("Nearby Search failed:", status);
+                }
+            });
+        }
+        
+        // Display nearby places in the UI
+        function displayNearbyPlaces(places) {
+            const nearbyList = document.getElementById('nearby-list');
+            nearbyList.innerHTML = '';
+            
+            places.slice(0, 5).forEach(place => {
+                const distance = calculateDistance(userLocation, place.geometry.location);
+                const placeDiv = document.createElement('div');
+                placeDiv.className = 'place-item';
+                placeDiv.innerHTML = `
+                    <div>
+                        <div class="place-name">${place.name}</div>
+                        <div class="place-distance">${distance.toFixed(1)} km away</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="getDirections('${place.place_id}')">🗺️ Route</button>
+                `;
+                nearbyList.appendChild(placeDiv);
+            });
+        }
+        
+        // Add markers for nearby places
+        function addPlaceMarkersToMap(places) {
+            if (!isGoogleMapsLoaded || !map) return;
+            
+            places.forEach(place => {
+                const marker = new google.maps.Marker({
+                    position: place.geometry.location,
+                    map: map,
+                    title: place.name,
+                    icon: {
+                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ff6b6b">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                        `),
+                        scaledSize: new google.maps.Size(24, 24)
+                    }
+                });
+                
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
+                        <div>
+                            <h4>${place.name}</h4>
+                            <p>Rating: ${place.rating || 'N/A'}</p>
+                            <button onclick="getDirections('${place.place_id}')">Get Directions</button>
+                        </div>
+                    `
+                });
+                
+                marker.addListener('click', () => {
+                    infoWindow.open(map, marker);
+                });
+            });
+        }
+        
+        // Get directions to a place
+        function getDirections(placeId) {
+            if (!userLocation) {
+                alert('Current location not available');
+                return;
+            }
+            
+            if (!isGoogleMapsLoaded || !directionsService) {
+                alert('Google Maps API needed for directions');
+                return;
+            }
+            
+            directionsService.route({
+                origin: userLocation,
+                destination: { placeId: placeId },
+                travelMode: google.maps.TravelMode.DRIVING
+            }, (response, status) => {
+                if (status === 'OK') {
+                    directionsRenderer.setDirections(response);
+                } else {
+                    alert('Directions request failed due to ' + status);
+                }
+            });
+        }
+        
+        // Calculate distance between two points
+        function calculateDistance(pos1, pos2) {
+            const lat1 = pos1.lat;
+            const lng1 = pos1.lng;
+            const lat2 = typeof pos2.lat === 'function' ? pos2.lat() : pos2.lat;
+            const lng2 = typeof pos2.lng === 'function' ? pos2.lng() : pos2.lng;
+            
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        // Send location data to SafeSakhi backend
+        function sendLocationToBackend(location) {
+            const locationData = {
+                user_id: 'demo_user', // Replace with actual user ID
+                latitude: location.lat,
+                longitude: location.lng,
+                timestamp: Math.floor(Date.now() / 1000),
+                accuracy: 10 // Mock accuracy
+            };
+            
+            // This would call your motion-input API
+            fetch(`${SAFESAKHI_API_BASE}/motion-input`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: locationData.user_id,
+                    motion_data: {
+                        location: {
+                            latitude: locationData.latitude,
+                            longitude: locationData.longitude,
+                            accuracy: locationData.accuracy
+                        },
+                        timestamp: locationData.timestamp
+                    }
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Location sent to SafeSakhi:', data);
+            })
+            .catch(error => {
+                console.error('Error sending location:', error);
+            });
+        }
+        
+        // Trigger emergency alert
+        function triggerEmergency() {
+            if (confirm('Are you sure you want to trigger an emergency alert?')) {
+                document.getElementById('status').className = 'status danger';
+                document.getElementById('status').textContent = '🚨 EMERGENCY ALERT TRIGGERED';
+                
+                // Call SafeSakhi emergency API
+                fetch(`${SAFESAKHI_API_BASE}/emergency-response`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: 'demo_user',
+                        emergency_type: 'manual_trigger',
+                        location: userLocation,
+                        timestamp: Math.floor(Date.now() / 1000)
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Emergency triggered:', data);
+                })
+                .catch(error => {
+                    console.error('Error triggering emergency:', error);
+                });
+            }
+        }
+        
+        // Initialize when page loads
+        window.onload = function() {
+            if (GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY_HERE') {
+                // Load Google Maps API
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=initMap`;
+                script.async = true;
+                script.onerror = function() {
+                    console.error('Failed to load Google Maps API');
+                    document.getElementById('map').innerHTML = 'Failed to load Google Maps API';
+                };
+                document.head.appendChild(script);
+            } else {
+                console.log('Google Maps API key not configured');
+                document.getElementById('map').innerHTML = 'Google Maps API key needed';
+            }
+            
+            // Initialize without maps if needed
+            getCurrentLocation();
+        };
+
+    </script>
+</body>
+</html>
