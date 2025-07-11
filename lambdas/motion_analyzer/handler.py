@@ -29,6 +29,16 @@ LOCATION_STATIONARY_THRESHOLD_METERS = float(os.environ.get('LOCATION_STATIONARY
 STATIONARY_DURATION_SECONDS = int(os.environ.get('STATIONARY_DURATION_SECONDS', '300'))
 
 
+def get_cors_headers():
+    """Get standard CORS headers"""
+    return {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+        'Access-Control-Allow-Methods': 'POST,OPTIONS'
+    }
+
+
 def decimal_default(obj):
     """Helper function to convert float to Decimal for DynamoDB"""
     if isinstance(obj, float):
@@ -83,6 +93,7 @@ def lambda_handler(event, context):
             logger.error("Validation Error: Missing required fields (user_id, created_at_epoch, motion_activity, location, is_stationary).")
             return {
                 'statusCode': 400,
+                'headers': get_cors_headers(),  # Added CORS headers
                 'body': json.dumps({'error': 'Missing required fields for motion analysis'})
             }
 
@@ -93,6 +104,7 @@ def lambda_handler(event, context):
             logger.error(f"Invalid created_at_epoch format: {created_at_epoch}")
             return {
                 'statusCode': 400,
+                'headers': get_cors_headers(),  # Added CORS headers
                 'body': json.dumps({'error': 'Invalid created_at_epoch format. Must be an integer epoch.'})
             }
 
@@ -105,6 +117,7 @@ def lambda_handler(event, context):
             logger.error("Validation Error: Missing required fields (user_id, timestamp).")
             return {
                 'statusCode': 400,
+                'headers': get_cors_headers(),  # Added CORS headers
                 'body': json.dumps({'error': 'Missing required fields (user_id, timestamp)'})
             }
 
@@ -149,6 +162,7 @@ def lambda_handler(event, context):
 
         return {
             'statusCode': 200,
+            'headers': get_cors_headers(),  # Added CORS headers
             'body': json.dumps({'message': 'Motion analysis processed successfully', 'threat_score': threat_score})
         }
 
@@ -156,17 +170,20 @@ def lambda_handler(event, context):
         logger.error(f"JSON parsing error: {e}")
         return {
             'statusCode': 400,
+            'headers': get_cors_headers(),  # Added CORS headers
             'body': json.dumps({'error': 'Invalid JSON in request body'})
         }
     except KeyError as e:
         logger.error(f"Missing expected key in event body or location data: {e}")
         return {
             'statusCode': 400,
+            'headers': get_cors_headers(),  # Added CORS headers
             'body': json.dumps({'error': f'Missing expected key: {e}'})
         }
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         return {
             'statusCode': 500,
+            'headers': get_cors_headers(),  # Added CORS headers
             'body': json.dumps({'error': 'Internal server error'})
         }

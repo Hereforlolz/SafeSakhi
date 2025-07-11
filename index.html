@@ -384,9 +384,11 @@
         // Find nearby safety locations
         function findNearbyHelp() {
             if (!userLocation || !userLocation.lat || !userLocation.lng) {
+                console.log('🔍 Finding nearby help for:', userLocation);
                 alert('⚠️ Location not available yet. Please click "📍 Update Location" and try again.');
                 return;
             }
+            console.log("🔍 Finding nearby help for:", userLocation);
 
             if (!isGoogleMapsLoaded || !placesService) {
                 // Fallback when Google Maps isn't loaded
@@ -402,6 +404,7 @@
             };
             
             placesService.nearbySearch(request, (results, status) => {
+                console.log("Nearby Search status:", status, "Results:", results);  
                 if (status === google.maps.places.PlacesServiceStatus.OK) {
                     displayNearbyPlaces(results);
                     addPlaceMarkersToMap(results);
@@ -413,6 +416,7 @@
         
         // Display nearby places in the UI
         function displayNearbyPlaces(places) {
+            console.log("Rendering places to UI:", places);
             const nearbyList = document.getElementById('nearby-list');
             nearbyList.innerHTML = '';
             
@@ -525,17 +529,18 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    user_id: locationData.user_id,
-                    motion_data: {
-                        location: {
-                            latitude: locationData.latitude,
-                            longitude: locationData.longitude,
-                            accuracy: locationData.accuracy
-                        },
-                        timestamp: locationData.timestamp
-                    }
+
+                    "user_id": "demo_user",
+                      "created_at_epoch": Math.floor(Date.now() / 1000),
+                      "motion_activity": 0.5,  // Motion intensity (0-1)
+                      "location": {
+                        "latitude": 38.735831,
+                        "longitude": -90.559889,
+                        "accuracy": 10  // GPS accuracy in meters
+                      },
+                      "is_stationary": false
+                    })
                 })
-            })
             .then(response => response.json())
             .then(data => {
                 console.log('Location sent to SafeSakhi:', data);
@@ -546,7 +551,7 @@
         }
         
         // Trigger emergency alert
-        function triggerEmergency() {
+    function triggerEmergency() {
             if (confirm('Are you sure you want to trigger an emergency alert?')) {
                 document.getElementById('status').className = 'status danger';
                 document.getElementById('status').textContent = '🚨 EMERGENCY ALERT TRIGGERED';
@@ -561,19 +566,32 @@
                         user_id: 'demo_user',
                         emergency_type: 'manual_trigger',
                         location: userLocation,
-                        timestamp: Math.floor(Date.now() / 1000)
+                        timestamp: Math.floor(Date.now() / 1000),
+                        risk_assessment: {
+                            risk_level: 'HIGH',
+                            timestamp: Math.floor(Date.now() / 1000),
+                            confidence: 1.0,
+                            trigger_type: 'manual'
+                        }
                     })
                 })
                 .then(response => response.json())
                 .then(data => {
                     console.log('Emergency triggered:', data);
+                    const lat = data.current_location && data.current_location.lat ? data.current_location.lat.toFixed(4) : "N/A";
+                    const lng = data.current_location && data.current_location.lng ? data.current_location.lng.toFixed(4) : "N/A";
+                    
+                    alert(`🚨 Emergency Triggered
+                User ID: ${data.user_id}
+                Time: ${new Date(data.timestamp * 1000).toLocaleString()}
+                Actions: ${data.actions_taken ? data.actions_taken.join(", ") : "N/A"}
+                Location: (${lat}, ${lng})`);
                 })
                 .catch(error => {
                     console.error('Error triggering emergency:', error);
                 });
             }
         }
-        
         // Initialize when page loads
         window.onload = function() {
             if (GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY_HERE') {
